@@ -144,7 +144,9 @@ class Component {
             const def = this.resolvedMap[key];
             if (!def) return "";
             if (def.type === "string") return def.value;
-            if (def.type === "component") return `<!--COMPONENT:${key}-->`;
+            if (def.type === "component") {
+                return `<template data-component="${key}"></template>`;
+            }
             return "";
         });
     }
@@ -163,30 +165,29 @@ class Component {
     }
 
     _applyComponents(root) {
-        const walker = document.createTreeWalker(root, NodeFilter.SHOW_COMMENT, null);
-        let node;
-
-        while ((node = walker.nextNode())) {
-            const match = node.nodeValue.match(/^COMPONENT:(.+)$/);
-            if (!match) continue;
-
-            const key = match[1];
+        const nodes = root.querySelectorAll("template[data-component]");
+    
+        for (const node of nodes) {
+            const key = node.getAttribute("data-component");
             const def = this.resolvedMap[key];
             if (!def || def.type !== "component") continue;
-
+    
             for (const item of def.value) {
                 const el =
-                    item instanceof Component ? item.render() :
-                    item instanceof HTMLElement ? item :
-                    typeof item === "string" ? document.createTextNode(item) :
-                    null;
-
+                    item && typeof item.render === "function"
+                        ? item.render()
+                        : item instanceof HTMLElement
+                        ? item
+                        : typeof item === "string"
+                        ? document.createTextNode(item)
+                        : null;
+    
                 if (el) node.parentNode.insertBefore(el, node);
             }
-
-            node.parentNode.removeChild(node);
+    
+            node.remove();
         }
-    }
+    }    
 
     _applyEvents(root) {
         const nodes = Array.from(root.querySelectorAll("[data-on]"));
